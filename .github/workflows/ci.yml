@@ -27,7 +27,15 @@ jobs:
           # from the cache (PRD-01 acceptance criterion 7).
 
       - name: Build, unit tests and lint
-        run: gradle build
+        run: |
+          set -o pipefail
+          gradle build --stacktrace 2>&1 | tee gradle-build.log
+
+      # The repo is public: append the tail of the build log to the job summary
+      # so failure causes are visible without repository admin rights.
+      - name: Publish build failure summary
+        if: failure()
+        run: tail -n 250 gradle-build.log >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload reports on failure
         if: failure()

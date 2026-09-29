@@ -25,6 +25,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.lifecycle.viewmodel.initializer
+import androidx.lifecycle.viewmodel.viewModelFactory
 
 /**
  * Foundation-phase UI. Deliberately plain: the PRD defers visual design; this
@@ -40,13 +42,15 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     ChatScreen(
                         viewModel(
-                            factory = {
-                                ChatViewModel(
-                                    conversations = deps.conversations,
-                                    runtime = deps.runtime,
-                                    provider = deps.provider,
-                                    assistant = deps.assistant,
-                                )
+                            factory = viewModelFactory {
+                                initializer {
+                                    ChatViewModel(
+                                        conversations = deps.conversations,
+                                        runtime = deps.runtime,
+                                        provider = deps.provider,
+                                        assistant = deps.assistant,
+                                    )
+                                }
                             }
                         )
                     )
