@@ -36,16 +36,20 @@ jobs:
           gradle build --stacktrace 2>&1 | tee gradle-build.log
 
       # The job summary is not readable through unauthenticated APIs; post the
-      # failure tail to an issue so the cause is inspectable without admin rights.
-      # Checks are NOT disabled or weakened — this only surfaces diagnostics.
+      # compiler/test error lines and the failure tail to an issue so the cause
+      # is inspectable without admin rights. Checks are NOT disabled or weakened.
       - name: Report failure log
         if: failure()
         run: |
           {
-            echo "Build log (last 300 lines):"
-            echo '```'
-            tail -n 300 gradle-build.log
-            echo '```'
+            echo "## Compiler / test error lines"
+            echo '~~~'
+            grep -E "^e: |error:|FAILED|Execution failed" gradle-build.log | sort -u | head -n 120 || true
+            echo '~~~'
+            echo "## Build log (last 600 lines)"
+            echo '~~~'
+            tail -n 600 gradle-build.log
+            echo '~~~'
           } > /tmp/issue-body.md
           gh issue create --title "CI build failure: ${GITHUB_SHA::8}" --body-file /tmp/issue-body.md || true
         env:
