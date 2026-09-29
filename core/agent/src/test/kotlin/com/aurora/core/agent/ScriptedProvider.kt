@@ -42,9 +42,8 @@ class ScriptedProvider(
             throw ProviderException(FailureType.CANCELLED, "cancelled")
         }
         if (delayMillis > 0) kotlinx.coroutines.delay(delayMillis)
-        val next = script.removeFirstOrNull()
-            ?: throw ProviderException(FailureType.MALFORMED_RESPONSE, "script exhausted")
-        return next
+        val next = if (script.isEmpty()) null else script.removeAt(0)
+        return next ?: throw ProviderException(FailureType.MALFORMED_RESPONSE, "script exhausted")
     }
 
     override fun stream(request: GenerationRequest): Flow<StreamEvent> = flow {
