@@ -20,8 +20,8 @@ import kotlinx.coroutines.flow.flow
  * (PRD-01 AC 4) and lets tests simulate model misbehavior deterministically.
  */
 class ScriptedProvider(
-    override val providerId: String = "scripted",
     private val script: MutableList<GenerationResult>,
+    override val providerId: String = "scripted",
 ) : AIProvider {
 
     val generateCalls = mutableListOf<String>()
