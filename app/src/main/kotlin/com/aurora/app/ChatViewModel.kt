@@ -46,7 +46,12 @@ class ChatViewModel(
         _state.value = _state.value.copy(busy = true)
         viewModelScope.launch {
             try {
+                // conversationId is a String id, not a Conversation: a plain
+                // elvis between String and Conversation would type the result
+                // as their common supertype and break member access. Resolve
+                // the id to a Conversation first, recreating when it is gone.
                 val conversation = conversationId
+                    ?.let { conversations.getConversation(it) }
                     ?: conversations.createConversation(title = trimmed.take(40)).also {
                         conversationId = it.id
                         observeConversation(it.id)
