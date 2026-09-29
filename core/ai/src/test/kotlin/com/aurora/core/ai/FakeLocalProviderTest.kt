@@ -25,7 +25,7 @@ class FakeLocalProviderTest {
         assertEquals("Aurora local echo: hello world", result.text)
         assertEquals(FinishReason.STOP, result.finishReason)
         assertTrue(result.toolCalls.isEmpty())
-        assertTrue(result.usage.estimated)
+        assertTrue(result.usage?.estimated == true)
     }
 
     @Test
@@ -48,7 +48,7 @@ class FakeLocalProviderTest {
     }
 
     @Test
-    fun `model descriptor marks itself local and available`() {
+    fun `model descriptor marks itself local and available`() = runTest {
         val model = provider.listModels().single()
         assertTrue(model.local)
         assertTrue(model.available)
