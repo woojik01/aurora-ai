@@ -68,7 +68,9 @@ class RoutedProvider(
     private suspend fun recordUsage(routed: FallbackRouter.Routed, requestId: String) {
         val usage = routed.result.usage ?: return
         val model = fallbackOrPrimaryDescriptor(routed.providerId, routed.modelId)
-        val pricingVersion = model?.costEstimateMetadata?.substringAfterLast(':', missingDelimiterValue = null)
+        val pricingVersion = model?.costEstimateMetadata?.let { metadata ->
+            metadata.substringAfterLast(':').takeIf { ':' in metadata }
+        }
         ledger.record(
             providerId = routed.providerId,
             modelId = routed.modelId,
