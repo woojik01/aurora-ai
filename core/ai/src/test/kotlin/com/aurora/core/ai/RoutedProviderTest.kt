@@ -40,7 +40,7 @@ class RoutedProviderTest {
             assertEquals("v3", entry.pricingVersion)
             // 5 input + 22 output tokens at 300 micros/1k → an estimate, never a bill.
             assertTrue(entry.estimated)
-            assertEquals((5 + 22) * 300 / 1000, entry.estimatedCostMicros)
+            assertEquals(8L, entry.estimatedCostMicros)
         }
     }
 
@@ -50,7 +50,8 @@ class RoutedProviderTest {
             val api = FakeApiProvider()
             api.failNextRequestWith(FailureType.NETWORK)
             val provider = routed(api)
-            val ledger = provider.ledgerRefForTest()
+            val ledger 
+= provider.ledgerRefForTest()
             val result = provider.generate(request(provider))
             assertTrue(result.text.startsWith("Aurora local echo"))
             val summary = provider.lastRouting.value!!
