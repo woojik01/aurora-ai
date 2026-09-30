@@ -44,3 +44,27 @@ data class MessageEntity(
     val providerId: String?,
     val modelId: String?,
 )
+
+/**
+ * Semantic memory (PRD-02). [sourceMessageId] is provenance, intentionally NOT
+ * a foreign key: a memory must survive even if the source message is pruned
+ * from bounded conversation history. Deletion is a tombstone ([deletedAt]).
+ */
+@Entity(
+    tableName = "memories",
+    indices = [
+        Index("namespace"),
+        Index(value = ["namespace", "updatedAt"]),
+    ],
+)
+data class MemoryEntity(
+    @PrimaryKey val id: String,
+    val namespace: String,
+    val type: String,
+    val content: String,
+    val sourceMessageId: String?,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val sensitivity: String,
+    val deletedAt: Long?,
+)

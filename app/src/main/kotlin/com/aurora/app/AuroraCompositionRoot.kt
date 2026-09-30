@@ -7,11 +7,13 @@ import com.aurora.core.ai.AIProvider
 import com.aurora.core.ai.FakeLocalProvider
 import com.aurora.core.data.db.AuroraDatabase
 import com.aurora.core.data.repository.ConversationRepositoryImpl
+import com.aurora.core.data.repository.MemoryRepositoryImpl
 import com.aurora.core.domain.model.AgentDefinition
 import com.aurora.core.domain.model.ApprovalPolicy
 import com.aurora.core.domain.model.FileScope
 import com.aurora.core.domain.model.NetworkPolicy
 import com.aurora.core.domain.port.ConversationRepository
+import com.aurora.core.domain.port.MemoryRepository
 import com.aurora.core.security.DefaultPolicyEngine
 import com.aurora.core.tool.FakeEchoTool
 import com.aurora.core.tool.ToolRegistry
@@ -27,10 +29,17 @@ object AuroraCompositionRoot {
             context.applicationContext,
             AuroraDatabase::class.java,
             AuroraDatabase.NAME,
-        ).build()
+        )
+            // PRD-02: every schema change ships a real migration; destructive
+            // migrations are forbidden.
+            .addMigrations(AuroraDatabase.MIGRATION_1_2)
+            .build()
 
         val conversationRepository: ConversationRepository =
             ConversationRepositoryImpl(database.conversationDao())
+
+        val memoryRepository: MemoryRepository =
+            MemoryRepositoryImpl(database.memoryDao())
 
         val provider: AIProvider = FakeLocalProvider()
 
@@ -66,12 +75,13 @@ object AuroraCompositionRoot {
             enabled = true,
         )
 
-        return AuroraDependencies(conversationRepository, runtime, provider, assistantAgent)
+        return AuroraDependencies(conversationRepository, memoryRepository, runtime, provider, assistantAgent)
     }
 }
 
 data class AuroraDependencies(
     val conversations: ConversationRepository,
+    val memories: MemoryRepository,
     val runtime: AgentRuntime,
     val provider: AIProvider,
     val assistant: AgentDefinition,
