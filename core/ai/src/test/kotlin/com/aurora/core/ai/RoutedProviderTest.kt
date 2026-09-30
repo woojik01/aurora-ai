@@ -18,7 +18,7 @@ class RoutedProviderTest {
         priceMicrosPer1k = mapOf(FakeApiProvider.MODEL.modelId to 300L),
     )
 
-    private fun request(provider: AIProvider) = GenerationRequest(
+    private suspend fun request(provider: AIProvider) = GenerationRequest(
         requestId = "r1",
         messages = listOf(ChatMessage(MessageRole.USER, "hello")),
         model = provider.listModels().first(),
