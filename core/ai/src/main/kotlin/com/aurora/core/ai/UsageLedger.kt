@@ -33,7 +33,7 @@ class UsageLedger(
     ): LedgerEntry {
         val tokens = (usage.inputTokens ?: 0) + (usage.outputTokens ?: 0)
         val estimatedCost = costMicrosPer1kTokens?.takeIf { usage.estimated && tokens > 0 }
-            ?.let { per1k -> tokens * per1k / 1_000 }
+            ?.let { per1k -> tokens.toLong() * per1k / 1_000 }
         val entry = LedgerEntry(
             id = idGen().value,
             providerId = providerId,
@@ -60,9 +60,9 @@ class UsageLedger(
         val window = entries.filter { it.timestamp >= since }
         return UsageTotals(
             requests = window.size,
-            inputTokens = window.sumOf { it.inputTokens ?: 0 },
-            outputTokens = window.sumOf { it.outputTokens ?: 0 },
-            estimatedCostMicros = window.filter { it.estimated }.sumOf { it.estimatedCostMicros ?: 0 },
+            inputTokens = window.sumOf { (it.inputTokens ?: 0).toLong() },
+            outputTokens = window.sumOf { (it.outputTokens ?: 0).toLong() },
+            estimatedCostMicros = window.filter { it.estimated }.sumOf { it.estimatedCostMicros ?: 0L },
             allCostsAreEstimates = window.none { !it.estimated },
         )
     }
