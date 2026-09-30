@@ -11,6 +11,8 @@ import com.aurora.core.domain.model.MessageRole
 import com.aurora.core.domain.model.MessageStatus
 import com.aurora.core.domain.model.RunOutcome
 import com.aurora.core.domain.port.ConversationRepository
+import com.aurora.core.domain.port.MemoryRepository
+import com.aurora.core.domain.service.MemoryRetrieval
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -19,10 +21,12 @@ import kotlinx.coroutines.launch
 
 /**
  * Offline chat. Uses the same AgentRuntime that future providers, agents and
- * tools will use — no UI shortcut path to the model.
+ * tools will use — no UI shortcut path to the model. Memories enter the
+ * prompt only through the explicit MemoryRetrieval layer (PRD-02).
  */
 class ChatViewModel(
     private val conversations: ConversationRepository,
+    private val memories: MemoryRepository,
     private val runtime: com.aurora.core.agent.AgentRuntime,
     private val provider: com.aurora.core.ai.AIProvider,
     private val assistant: com.aurora.core.domain.model.AgentDefinition,
@@ -31,6 +35,7 @@ class ChatViewModel(
     data class UiState(
         val messages: List<Message> = emptyList(),
         val busy: Boolean = false,
+        val memoryCount: Int = 0,
         val statusLine: String = "Offline · local model: ${FakeLocalProvider.MODEL.modelId}",
     )
 
@@ -39,6 +44,15 @@ class ChatViewModel(
 
     private var conversationId: String? = null
     private var conversationJob: Job? = null
+
+    init {
+        // The memory view is bounded and reactive; the count feeds the status line.
+        viewModelScope.launch {
+            memories.observeMemories(MEMORY_NAMESPACE, limit = MEMORY_LIMIT).collect { latest ->
+                _state.value = _state.value.copy(memoryCount = latest.size)
+            }
+        }
+    }
 
     fun send(text: String) {
         val trimmed = text.trim()
@@ -63,10 +77,22 @@ class ChatViewModel(
                 )
                 conversations.appendMessage(userMessage)
 
+                // Memories reach the prompt ONLY via the bounded retrieval
+                // layer — deterministic filter first, then a char budget.
+                val memoryContext = MemoryRetrieval.buildContext(
+                    memories.retrieveMemories(MEMORY_NAMESPACE, limit = MEMORY_LIMIT),
+                    maxChars = MEMORY_CONTEXT_MAX_CHARS,
+                )
+                val systemPrompt = if (memoryContext.isEmpty()) {
+                    assistant.systemPrompt
+                } else {
+                    assistant.systemPrompt + "\n\nKnown memories about the user:\n" + memoryContext
+                }
+
                 val request = GenerationRequest(
                     requestId = AuroraId.generate().value,
                     messages = listOf(
-                        ChatMessage(MessageRole.SYSTEM, assistant.systemPrompt),
+                        ChatMessage(MessageRole.SYSTEM, systemPrompt),
                         ChatMessage(MessageRole.USER, trimmed),
                     ),
                     model = provider.listModels().first(),
@@ -119,5 +145,11 @@ class ChatViewModel(
                 _state.value = _state.value.copy(messages = messages)
             }
         }
+    }
+
+    companion object {
+        private const val MEMORY_NAMESPACE = "profile"
+        private const val MEMORY_LIMIT = 20
+        private const val MEMORY_CONTEXT_MAX_CHARS = 2_000
     }
 }

@@ -46,6 +46,7 @@ class MainActivity : ComponentActivity() {
                                 initializer {
                                     ChatViewModel(
                                         conversations = deps.conversations,
+                                        memories = deps.memories,
                                         runtime = deps.runtime,
                                         provider = deps.provider,
                                         assistant = deps.assistant,
@@ -72,6 +73,12 @@ fun ChatScreen(viewModel: ChatViewModel) {
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(text = state.statusLine, style = MaterialTheme.typography.labelSmall)
+        if (state.memoryCount > 0) {
+            Text(
+                text = "기억 ${state.memoryCount}개 사용 중",
+                style = MaterialTheme.typography.labelSmall,
+            )
+        }
         LazyColumn(
             modifier = Modifier
                 .weight(1f)
