@@ -25,6 +25,14 @@ class RoutedProviderTest {
     )
 
     @Test
+    fun suspendRequestHelperResolvesProviderModel() {
+        runBlocking {
+            val provider = routed()
+            assertEquals(FakeApiProvider.MODEL.modelId, request(provider).model.modelId)
+        }
+    }
+
+    @Test
     fun primarySuccessRecordsApiUsageWithEstimate() {
         runBlocking {
             val api = FakeApiProvider()
