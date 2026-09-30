@@ -67,7 +67,7 @@ class FallbackRouterTest {
             // Tool schemas request a tool-capable model; the fake local model
             // does not support tool calls → no compatible fallback exists.
             val tools = mapOf(
-                "fake.echo" to listOf(ToolSchema("text", "payload", ToolParamType.STRING)),
+                "fake.echo" to listOf(ToolSchema(name = "text", type = ToolParamType.STRING)),
             )
             val error = runCatching { router.generate(request(FakeApiProvider.MODEL, tools)) }.exceptionOrNull()
             assertTrue(error is ProviderException)

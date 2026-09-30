@@ -1,5 +1,6 @@
 package com.aurora.core.ai
 
+import com.aurora.core.domain.model.AuroraId
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -8,20 +9,19 @@ import org.junit.Test
 
 class UsageLedgerTest {
 
-    private fun ledger(vararg clock: Long): Pair<UsageLedger, MutableList<Long>> {
-        val times = clock.toMutableList() if (clock.isNotEmpty()) else mutableListOf(100L)
-        var i = 0
+    /** Deterministic clock: each record() consumes the next timestamp. */
+    private fun ledger(times: List<Long>): UsageLedger {
+        val queue = ArrayDeque(times)
         var seq = 0
-        val l = UsageLedger(
-            now = { if (i < times.size) times[i] else times.last(); i += 1; times[minOf(i - 1, times.size - 1)] },
-            idGen = { seq += 1; com.aurora.core.domain.model.AuroraId.generate(0) },
+        return UsageLedger(
+            now = { queue.removeFirstOrNull() ?: times.last() },
+            idGen = { seq += 1; AuroraId.generate(0) },
         )
-        return l to times
     }
 
     @Test
     fun recordStoresProviderModelTokensAndPricing() {
-        val (l, _) = ledger(1000)
+        val l = ledger(listOf(1000L))
         val entry = l.record(
             providerId = "fake-api",
             modelId = "fake-api-1",
@@ -32,6 +32,7 @@ class UsageLedgerTest {
         )
         assertEquals("fake-api", entry.providerId)
         assertEquals("fake-api-1", entry.modelId)
+        assertEquals(1000L, entry.timestamp)
         assertEquals(500, entry.inputTokens)
         assertEquals(500, entry.outputTokens)
         assertEquals("per-1k-tokens:v3", entry.pricingVersion)
@@ -42,7 +43,7 @@ class UsageLedgerTest {
 
     @Test
     fun missingPricingMetadataMakesNoCostClaim() {
-        val (l, _) = ledger(1000)
+        val l = ledger(listOf(1000L))
         val entry = l.record("p", "m", "r", UsageEstimate(10, 10, estimated = true), pricingVersion = null, costMicrosPer1kTokens = null)
         assertNull(entry.pricingVersion)
         assertNull(entry.estimatedCostMicros)
@@ -50,7 +51,7 @@ class UsageLedgerTest {
 
     @Test
     fun totalsSumWindowAndMarkEstimates() {
-        val (l, _) = ledger(1000, 2000, 3000)
+        val l = ledger(listOf(1000L, 2000L, 3000L))
         l.record("p", "m1", "r1", UsageEstimate(100, 50, estimated = true), "v3", 1000)
         l.record("p", "m2", "r2", UsageEstimate(200, 150, estimated = true), "v3", 1000)
         val totals = l.totalsSince(since = 0)
@@ -58,12 +59,13 @@ class UsageLedgerTest {
         assertEquals(300L, totals.inputTokens)
         assertEquals(200L, totals.outputTokens)
         assertTrue(totals.allCostsAreEstimates)
-        assertEquals((150 * 1000 + 350 * 1000) / 1000, totals.estimatedCostMicros)
+        // (150 + 350) tokens * 1000 micros / 1000 = 500 micros
+        assertEquals(500L, totals.estimatedCostMicros)
     }
 
     @Test
     fun measuredUsageIsNotSummedAsEstimate() {
-        val (l, _) = ledger(1000)
+        val l = ledger(listOf(1000L))
         l.record("p", "m", "r", UsageEstimate(10, 10, estimated = false), "v3", 1000)
         val totals = l.totalsSince(since = 0)
         assertFalse(totals.allCostsAreEstimates)
@@ -72,7 +74,7 @@ class UsageLedgerTest {
 
     @Test
     fun recentEntriesIsBoundedAndNewestFirst() {
-        val (l, _) = ledger(1000, 2000, 3000)
+        val l = ledger(listOf(1000L, 2000L, 3000L))
         repeat(3) { i -> l.record("p", "m" + i, "r" + i, UsageEstimate(1, 1, estimated = true), null, null) }
         val recent = l.recentEntries(limit = 2)
         assertEquals(2, recent.size)
