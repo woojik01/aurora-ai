@@ -3,8 +3,10 @@ package com.aurora.app
 import android.content.Context
 import androidx.room.Room
 import com.aurora.core.agent.AgentRuntime
-import com.aurora.core.ai.AIProvider
+import com.aurora.core.ai.FakeApiProvider
 import com.aurora.core.ai.FakeLocalProvider
+import com.aurora.core.ai.RoutedProvider
+import com.aurora.core.ai.UsageLedger
 import com.aurora.core.data.db.AuroraDatabase
 import com.aurora.core.data.repository.ConversationRepositoryImpl
 import com.aurora.core.data.repository.MemoryRepositoryImpl
@@ -20,7 +22,8 @@ import com.aurora.core.tool.ToolRegistry
 
 /**
  * Manual composition root. No DI framework yet — dependencies are few and the
- * graph is intentionally explicit. Everything here works fully offline.
+ * graph is intentionally explicit. Everything here works fully offline; the
+ * API side is a clearly-labelled fake until real providers land (PRD-03).
  */
 object AuroraCompositionRoot {
 
@@ -41,7 +44,17 @@ object AuroraCompositionRoot {
         val memoryRepository: MemoryRepository =
             MemoryRepositoryImpl(database.memoryDao())
 
-        val provider: AIProvider = FakeLocalProvider()
+        val local = FakeLocalProvider()
+        val api = FakeApiProvider()
+        val ledger = UsageLedger()
+        val provider = RoutedProvider(
+            primary = api,
+            fallback = local,
+            ledger = ledger,
+            // Fake pricing metadata for the fake API model only (PRD-03:
+            // costs derived from metadata are always estimates).
+            priceMicrosPer1k = mapOf(FakeApiProvider.MODEL.modelId to 300L),
+        )
 
         val toolRegistry = ToolRegistry().apply {
             // Foundation-phase tool. Real tools arrive in PRD-04.
@@ -64,7 +77,7 @@ object AuroraCompositionRoot {
             name = "Aurora",
             systemPrompt = "You are Aurora, an offline-first personal assistant.",
             providerId = provider.providerId,
-            modelId = FakeLocalProvider.MODEL.modelId,
+            modelId = FakeApiProvider.MODEL.modelId,
             allowedTools = setOf("fake.echo"),
             maxToolCalls = 5,
             maxExecutionDepth = 2,
@@ -75,7 +88,15 @@ object AuroraCompositionRoot {
             enabled = true,
         )
 
-        return AuroraDependencies(conversationRepository, memoryRepository, runtime, provider, assistantAgent)
+        return AuroraDependencies(
+            conversations = conversationRepository,
+            memories = memoryRepository,
+            runtime = runtime,
+            provider = provider,
+            assistant = assistantAgent,
+            ledger = ledger,
+            routing = provider,
+        )
     }
 }
 
@@ -83,6 +104,8 @@ data class AuroraDependencies(
     val conversations: ConversationRepository,
     val memories: MemoryRepository,
     val runtime: AgentRuntime,
-    val provider: AIProvider,
+    val provider: RoutedProvider,
     val assistant: AgentDefinition,
+    val ledger: UsageLedger,
+    val routing: RoutedProvider,
 )

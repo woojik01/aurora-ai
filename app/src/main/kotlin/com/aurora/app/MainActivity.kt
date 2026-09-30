@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
                                         runtime = deps.runtime,
                                         provider = deps.provider,
                                         assistant = deps.assistant,
+                                        ledger = deps.ledger,
+                                        routing = deps.routing,
                                     )
                                 }
                             }
@@ -72,6 +74,7 @@ fun ChatScreen(viewModel: ChatViewModel) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        // PRD-03: provider, model, fallback reason, usage, estimated cost.
         Text(text = state.statusLine, style = MaterialTheme.typography.labelSmall)
         if (state.memoryCount > 0) {
             Text(
