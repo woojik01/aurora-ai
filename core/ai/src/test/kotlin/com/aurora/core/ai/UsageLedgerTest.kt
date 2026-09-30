@@ -44,7 +44,14 @@ class UsageLedgerTest {
     @Test
     fun missingPricingMetadataMakesNoCostClaim() {
         val l = ledger(listOf(1000L))
-        val entry = l.record("p", "m", "r", UsageEstimate(10, 10, estimated = true), pricingVersion = null, costMicrosPer1kTokens = null)
+        val entry = l.record(
+            providerId = "p",
+            modelId = "m",
+            requestId = "r",
+            usage = UsageEstimate(inputTokens = 10, outputTokens = 10, estimated = true),
+            pricingVersion = null,
+            costMicrosPer1kTokens = null,
+        )
         assertNull(entry.pricingVersion)
         assertNull(entry.estimatedCostMicros)
     }
@@ -52,8 +59,16 @@ class UsageLedgerTest {
     @Test
     fun totalsSumWindowAndMarkEstimates() {
         val l = ledger(listOf(1000L, 2000L, 3000L))
-        l.record("p", "m1", "r1", UsageEstimate(100, 50, estimated = true), "v3", 1000)
-        l.record("p", "m2", "r2", UsageEstimate(200, 150, estimated = true), "v3", 1000)
+        l.record(
+            providerId = "p", modelId = "m1", requestId = "r1",
+            usage = UsageEstimate(inputTokens = 100, outputTokens = 50, estimated = true),
+            pricingVersion = "v3", costMicrosPer1kTokens = 1000,
+        )
+        l.record(
+            providerId = "p", modelId = "m2", requestId = "r2",
+            usage = UsageEstimate(inputTokens = 200, outputTokens = 150, estimated = true),
+            pricingVersion = "v3", costMicrosPer1kTokens = 1000,
+        )
         val totals = l.totalsSince(since = 0)
         assertEquals(2, totals.requests)
         assertEquals(300L, totals.inputTokens)
@@ -66,7 +81,11 @@ class UsageLedgerTest {
     @Test
     fun measuredUsageIsNotSummedAsEstimate() {
         val l = ledger(listOf(1000L))
-        l.record("p", "m", "r", UsageEstimate(10, 10, estimated = false), "v3", 1000)
+        l.record(
+            providerId = "p", modelId = "m", requestId = "r",
+            usage = UsageEstimate(inputTokens = 10, outputTokens = 10, estimated = false),
+            pricingVersion = "v3", costMicrosPer1kTokens = 1000,
+        )
         val totals = l.totalsSince(since = 0)
         assertFalse(totals.allCostsAreEstimates)
         assertEquals(0L, totals.estimatedCostMicros)
@@ -75,7 +94,13 @@ class UsageLedgerTest {
     @Test
     fun recentEntriesIsBoundedAndNewestFirst() {
         val l = ledger(listOf(1000L, 2000L, 3000L))
-        repeat(3) { i -> l.record("p", "m" + i, "r" + i, UsageEstimate(1, 1, estimated = true), null, null) }
+        repeat(3) { i ->
+            l.record(
+                providerId = "p", modelId = "m" + i, requestId = "r" + i,
+                usage = UsageEstimate(inputTokens = 1, outputTokens = 1, estimated = true),
+                pricingVersion = null, costMicrosPer1kTokens = null,
+            )
+        }
         val recent = l.recentEntries(limit = 2)
         assertEquals(2, recent.size)
         assertEquals(3000L, recent.first().timestamp)
